@@ -25,6 +25,12 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 
 #include "unwind_i.h"
 
+#ifdef HAVE_AEE_FEATURE
+#include <sys/ptrace.h>
+#include "aee.h"
+int IsKernelDumpUserStack=0;
+#endif
+
 static const char *const regname[] =
   {
     [UNW_AARCH64_X0] = "x0",

@@ -47,22 +47,28 @@ unw_is_signal_frame (unw_cursor_t *cursor)
   arg = c->dwarf.as_arg;
 
   ip = c->dwarf.ip;
-  /* ANDROID support update. */
-  /* Undo the attempt to correct the PC or we'll be pointing to the nop instead of the mov. */
-  ip += 4;
-  /* ANDROID support update. */
 
   ret = (*a->access_mem) (as, ip, &w0, 0, arg);
-  if (ret < 0)
-  /* ANDROID support update. */
-    return 0;
-  /* End ANDROID update. */
-
   /* FIXME: distinguish 32bit insn vs 64bit registers.  */
-  if (w0 != 0xd4000001d2801168)
-    return 0;
+  if ( (ret >= 0) &&(w0 == 0xd4000001d2801168))
+  {
+		Debug(1, "unw_is_signal_frame ip=0x%016lx\n",ip);
+  		return 1;
+  }
+  else if(c->dwarf.frame !=0) //the first unwind need to judge for not -4
+  { 	
+  	/* FIXME: distinguish 32bit insn vs 64bit registers.  */
+  	//fixed in __rt_sigreturn ,BT Always is _exit_with_stack_teardown
+  	ret = (*a->access_mem) (as, ip+4, &w0, 0, arg); 
+	if ( (ret >= 0) &&(w0 == 0xd4000001d2801168))
+  	{
+  		Debug(1, "unw_is_signal_frame ip=0x%016lx\n",ip);
+	  	return 1;
+  	}
+  }
+  return 0;
+  	
 
-  return 1;
 
 #else
   return -UNW_ENOINFO;

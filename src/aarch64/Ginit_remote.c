@@ -25,12 +25,28 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 #include "init.h"
 #include "unwind_i.h"
 
+#ifdef HAVE_AEE_FEATURE
+#include <sys/ptrace.h>
+#include "aee.h"
+extern int IsKernelDumpUserStack;
+#endif
+
 PROTECTED int
 unw_init_remote (unw_cursor_t *cursor, unw_addr_space_t as, void *as_arg)
 {
 #ifdef UNW_LOCAL_ONLY
   return -UNW_EINVAL;
 #else /* !UNW_LOCAL_ONLY */
+  #ifdef HAVE_AEE_FEATURE
+  IsKernelDumpUserStack=0;
+  if(cursor->opaque[0]==0xdeaddead)
+  {
+     	IsKernelDumpUserStack=1;
+     	Debug (1, "(IsKernelDumpUserStack=%d)\n", IsKernelDumpUserStack);
+  
+  }
+  #endif
+  
   struct cursor *c = (struct cursor *) cursor;
 
   if (!tdep_init_done)

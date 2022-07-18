@@ -25,6 +25,12 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 
 #include "_UPT_internal.h"
+#ifdef HAVE_AEE_FEATURE
+#include "aee.h"
+struct aee_thread_user_stack UserStackInfo;
+extern int IsKernelDumpUserStack;
+uintptr_t FirstSP;
+#endif
 
 #if UNW_TARGET_IA64
 # include <elf.h>
@@ -257,6 +263,42 @@ _UPT_access_reg (unw_addr_space_t as, unw_regnum_t reg, unw_word_t *val,
 #if UNW_DEBUG
     Debug(2, "ptrace failure\n");
 #endif
+#ifdef HAVE_AEE_FEATURE
+	Debug(2, ",enter getreg,IsKernelDumpUserStack=%d\n",IsKernelDumpUserStack);
+	if(IsKernelDumpUserStack)
+ {
+     //*val=User_pt_regs.uregs[reg];
+     static int IsTheFirstAccess=0;
+     pid_t user_tid=0;
+     pid_t ret;
+     if(IsTheFirstAccess==0)
+     {	
+         IsTheFirstAccess=1;
+         Debug (1, " unw_init_remote(IsKernelDumpUserStack=%x)\n", IsKernelDumpUserStack);
+         // get reg from kernel ,UNW_TDEP_SP:arm r13, aarch64:x31-----------
+         user_tid=aee_kernel_dump_user_ioctl_get_reg(0xdeaddead,UNW_TDEP_SP,&FirstSP); //in order to get real pid &sp
+         Debug (1, " unw_init_remote(IsKernelDumpUserStack=%x, tid=%x,sp:%lx)\n", IsKernelDumpUserStack,user_tid,(long)FirstSP);
+         Debug (1, "( 22sKernelDumpUserStack=%d, FirstSP addr(%lx),UserStackInfo addr(%lx),IsKernelDumpUserStack add(%lx))\n", IsKernelDumpUserStack,(long)&FirstSP,(long)&UserStackInfo,(long)&IsKernelDumpUserStack);
+         //get stack from kernel
+         if(user_tid)
+             aee_kernel_dump_user_ioctl_get_userstack(user_tid,&UserStackInfo);
+     
+     }
+     
+     ret=aee_kernel_dump_user_ioctl_get_reg(pid, reg, val);
+     Debug (16, " %s[%u] -> %lx, pidret=%d\n", unw_regname (reg), (unsigned) reg, (long) *val,ret);
+     if (ret)
+     return 0;
+	}
+	else
+	{
+	
+    	bool ret;
+    	ret = aee_ioctl_get_reg(pid, reg, val);
+    	if (ret)
+		 return 0;
+	}
+#endif
     goto badreg;
   }
 #endif
@@ -372,7 +414,44 @@ _UPT_access_reg (unw_addr_space_t as, unw_regnum_t reg, unw_word_t *val,
     Debug (16, "%s [%u] <- %lx\n", unw_regname (reg), (unsigned) reg, (long) *val);
 #endif
   if (ptrace(PTRACE_GETREGSET, pid, (void*)NT_PRSTATUS, (void*)&io) == -1)
-    goto badreg;
+  {
+      #ifdef HAVE_AEE_FEATURE
+          if(IsKernelDumpUserStack)
+          {
+              //*val=User_pt_regs.uregs[reg];
+              static int IsTheFirstAccess=0;
+              pid_t user_tid=0;
+              pid_t ret;
+              if(IsTheFirstAccess==0)
+              {	
+                  IsTheFirstAccess=1;
+                  Debug (1, " unw_init_remote(IsKernelDumpUserStack=%x)\n", IsKernelDumpUserStack);
+                  // get reg from kernel  -----------
+                  user_tid=aee_kernel_dump_user_ioctl_get_reg(0xdeaddead,UNW_TDEP_SP,&FirstSP); //in order to get real pid &sp
+                  Debug (1, " unw_init_remote(IsKernelDumpUserStack=%x, tid=%x,sp:%lx)\n", IsKernelDumpUserStack,user_tid,(long)FirstSP);
+                  Debug (1, "( 11IsKernelDumpUserStack=%d, FirstSP addr(%lx),UserStackInfo addr(%lx),IsKernelDumpUserStack add(%lx))\n", IsKernelDumpUserStack,(long)&FirstSP,(long)&UserStackInfo,(long)&IsKernelDumpUserStack);
+                  //get stack from kernel
+                  if(user_tid)
+                  	aee_kernel_dump_user_ioctl_get_userstack(user_tid,&UserStackInfo);
+              
+              }
+              ret=aee_kernel_dump_user_ioctl_get_reg(pid, reg, val);
+              Debug (16, " %s[%u] -> %lx, pidret=%d\n", unw_regname (reg), (unsigned) reg, (long) *val,ret);
+              if (ret)
+              return 0;
+          }
+          else
+          {
+              bool ret;
+              ret = aee_ioctl_get_reg(pid, reg, val);
+              if (ret)
+                  return 0;
+          }	
+      #endif
+      goto badreg;
+
+  }
+
   if (write)
     {
       if (reg == UNW_AARCH64_SP)

@@ -219,6 +219,21 @@ libunwind_shared_libraries += \
 
 endif
 
+ifneq ($(LOCAL_CLANG),true)
+ifeq ($(HAVE_AEE_FEATURE), yes)
+ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),arm arm64))
+common_cflags_target += -DHAVE_AEE_FEATURE
+
+common_c_includes += \
+	$(LOCAL_PATH)/../../vendor/mediatek/proprietary/external/aee/binary/inc \
+
+libunwind_shared_libraries_target += \
+	libaed \
+
+endif # TARGET_ARCH
+endif # HAVE_AEE_FEATURE
+endif # LOCAL_CLANG
+
 module := libunwind
 module_tag := optional
 build_type := target
@@ -265,6 +280,21 @@ libunwind-ptrace_shared_libraries += \
 	liblog \
 
 endif
+
+ifneq ($(LOCAL_CLANG),true)
+ifeq ($(HAVE_AEE_FEATURE), yes)
+ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),arm arm64))
+common_cflags_target += -DHAVE_AEE_FEATURE
+
+common_c_includes += \
+	$(LOCAL_PATH)/../../vendor/mediatek/proprietary/external/aee/binary/inc \
+
+libunwind-ptrace_shared_libraries_target := \
+	libaed \
+
+endif # TARGET_ARCH
+endif # HAVE_AEE_FEATURE
+endif # LOCAL_CLANG
 
 module := libunwind-ptrace
 module_tag := optional

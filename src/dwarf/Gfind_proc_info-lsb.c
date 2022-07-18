@@ -132,6 +132,9 @@ load_debug_frame (const char *file, char **buf, size_t *bufsize, int is_local)
   
   for (i = 1; i < ehdr.e_shnum && *buf == NULL; i++)
     {
+      if (sec_hdrs[i].sh_name >= sec_hdrs[shstrndx].sh_size)
+          goto file_error;
+
       char *secname = &stringtab[sec_hdrs[i].sh_name];
 
       if (strcmp (secname, ".debug_frame") == 0)

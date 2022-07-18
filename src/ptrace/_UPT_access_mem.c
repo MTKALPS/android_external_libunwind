@@ -25,6 +25,12 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 
 #include "_UPT_internal.h"
+#ifdef HAVE_AEE_FEATURE
+#include "aee.h"
+extern uintptr_t FirstSP;
+extern struct aee_thread_user_stack UserStackInfo;
+extern int IsKernelDumpUserStack;
+#endif
 
 #if HAVE_DECL_PTRACE_POKEDATA || HAVE_TTRACE
 int
@@ -73,7 +79,30 @@ _UPT_access_mem (unw_addr_space_t as, unw_word_t addr, unw_word_t *val,
       *val = ptrace (PTRACE_PEEKDATA, pid, (void*) addr, 0);
       /* End of ANDROID update. */
       if (errno)
+#ifdef HAVE_AEE_FEATURE
+      {
+        bool ret = false;
+      if( (IsKernelDumpUserStack)&& (addr> FirstSP)&& (addr < (FirstSP + UserStackInfo.stacklength)) )
+      {
+          #if __LP64__
+              //64bit user ok, 32bit user????
+              memcpy(val,&(UserStackInfo.Userspace_Stack[addr-FirstSP]),8);
+          #else
+              memcpy(val,&(UserStackInfo.Userspace_Stack[addr-FirstSP]),4);
+          #endif
+          //*val=UserStackInfo.Userspace_Stack[(addr-FirstSP)/4 ];
+          Debug (16, "stack: mem[%lx] -> %lx\n", (long) addr, (long) *val);
+          ret=true;
+          
+      }
+      else
+        	ret = aee_try_get_word(pid, addr, val);
+        if (!ret)
+#endif //HAVE_AEE_FEATURE
 	return -UNW_EINVAL;
+#ifdef HAVE_AEE_FEATURE
+      }
+#endif //HAVE_AEE_FEATURE
 #endif
 /* End of ANDROID update. */
       Debug (16, "mem[%lx] -> %lx\n", (long) addr, (long) *val);
